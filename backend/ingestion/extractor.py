@@ -41,8 +41,8 @@ def extract_markdown(content):
         if token.type == "fence":
             blocks.append({
                 "type": "code",
-                "language": token.info.strip(),
-                "content": token.content
+                "language": token.info.strip() or "text",
+                "content": token.content.rstrip("\n")
             })
 
         i += 1
