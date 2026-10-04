@@ -40,11 +40,73 @@ def upsert_chunks(chunks):
         points=points,
     )
 
-def search_with_filter(query_vector, file_name): 
+def search_similar_chunks(query_vector):
+
     results = client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
-        query_filter=Filter(
+        limit=10,
+    )
+
+    return results.points
+
+# def search_with_filter(query_vector, file_name): 
+#     results = client.query_points(
+#         collection_name=COLLECTION_NAME,
+#         query=query_vector,
+#         query_filter=Filter(
+#             must=[
+#                 FieldCondition(
+#                     key="file",
+#                     match=MatchValue(value=file_name)
+#                 )
+#             ]
+#         ),
+#         limit=5,
+#     )
+
+#     return results.points
+
+
+
+#temp function for debugging
+# def get_all_chunks():
+#     results = client.scroll(
+#         collection_name=COLLECTION_NAME,
+#         limit=10,
+#         with_payload=True,
+#         with_vectors=False,
+#     )
+
+#     return results[0]
+
+def get_chunks_by_section(file_name, section_name):
+
+    results = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(
+            must=[
+                FieldCondition(
+                    key="file",
+                    match=MatchValue(value=file_name)
+                ),
+                FieldCondition(
+                    key="section",
+                    match=MatchValue(value=section_name)
+                ),
+            ]
+        ),
+        limit=20,
+        with_payload=True,
+        with_vectors=False,
+    )
+
+    return results[0]
+
+def get_chunks_by_file(file_name):
+    results = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(
             must=[
                 FieldCondition(
                     key="file",
@@ -52,7 +114,27 @@ def search_with_filter(query_vector, file_name):
                 )
             ]
         ),
-        limit=5,
+        limit=100,
+        with_payload=True,
+        with_vectors=False,
+    )
+
+    return results[0]
+
+def search_chunks_by_files(query_vector, file_names, limit=15):
+    results = client.query_points(
+        collection_name=COLLECTION_NAME,
+        query=query_vector,
+        query_filter=Filter(
+            should=[
+                FieldCondition(
+                    key="file",
+                    match=MatchValue(value=file_name)
+                )
+                for file_name in file_names
+            ]
+        ),
+        limit=limit,
     )
 
     return results.points
