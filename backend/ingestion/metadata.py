@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 def add_metadata(blocks, file_path,source):
     # File path ko Path object me convert karte hain, taaki .name se
     # sirf file ka naam aasani se mil sake.
@@ -14,7 +13,7 @@ def add_metadata(blocks, file_path,source):
     result = []
 
     for block in blocks:
-        # Heading ko result me add nahi karna; ise current section
+        # Heading ko result me add nahi karna; ise current section and subsections ko track karne ke liye use karna hai.
         # identify karne ke liye use karna hai.
         if block["type"] == "heading":
             level = block["level"]  # here level will be 1,2,3 is a key and the value will be the title of that section

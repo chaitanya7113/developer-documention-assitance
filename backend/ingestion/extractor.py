@@ -1,6 +1,5 @@
 from markdown_it import MarkdownIt
 
-
 def extract_markdown(content):
     markdown = MarkdownIt()
     tokens = markdown.parse(content)
@@ -38,13 +37,22 @@ def extract_markdown(content):
             continue
 
         # Code block
+        # its job to get the language of the code block, if any. If no language is specified, it defaults to "text".
         if token.type == "fence":
+            info = token.info.strip() #its job to get the language of the code block, if any. If no language is specified, it defaults to "text".
+
+            language = info.split()[0] if info else "text" # its job to get the language of the code block, if any. If no language is specified, it defaults to "text".
+
             blocks.append({
                 "type": "code",
-                "language": token.info.strip() or "text",
+                "language": language,
                 "content": token.content.rstrip("\n")
             })
 
         i += 1
+            
 
     return blocks
+
+
+
