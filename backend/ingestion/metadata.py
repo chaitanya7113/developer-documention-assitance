@@ -1,4 +1,5 @@
 from pathlib import Path
+from ingestion.function_detector import detect_function_names
 
 def add_metadata(blocks, file_path,source):
     # File path ko Path object me convert karte hain, taaki .name se
@@ -24,8 +25,8 @@ def add_metadata(blocks, file_path,source):
             # Current heading se deeper purane sections remove karo.
             # list(sections) keys ki copy banata hai, isliye original
             # dictionary se delete karna safely possible hota hai.
-            for section_level in list(sections):
-                if section_level > level:
+            for section_level in list(sections):   # list(sections)= [1,2,3] and section_level=1,2,3
+                if section_level > level:    # if section_level is 3 and level is 2, then delete the section
                     del sections[section_level]
 
             continue
@@ -46,6 +47,17 @@ def add_metadata(blocks, file_path,source):
         if block["type"] == "code":
             # Code block ke saath uski programming language bhi save karo.
             metadata["language"] = block["language"]
+            language=block["language"]
+
+
+            supported_languages = {
+                    "js", "jsx", "javascript",
+                    "ts", "tsx", "typescript"
+                }
+            if language.lower() in supported_languages:
+                metadata["function_names"] = detect_function_names(block["content"])
+            else:
+                metadata["function_names"] = []
 
         # Content aur metadata ko ek result item ke roop me add karo.
         result.append({

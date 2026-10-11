@@ -60,7 +60,8 @@ if __name__ == "__main__":
 
     if chunks:
         for chunk in chunks[:30]:
-            print(f"Chunk ID: {chunk['id']}")
-            print(f"Metadata: {chunk['metadata']}")
-            print(f"Content: {chunk['content']}")
-            print("-" * 100)
+            if chunk['metadata']['type']=='code':
+                # print(f"Chunk ID: {chunk['id']}")
+                print(f"Metadata: {chunk['metadata']['function_names']}")
+                # print(f"Content: {chunk['content']}")
+                print("-" * 100)
