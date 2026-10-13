@@ -1,3 +1,6 @@
+from importlib.metadata import metadata
+
+
 def create_chunks(blocks, max_characters=2000):
     chunks = []
 
@@ -57,6 +60,15 @@ def build_chunk(blocks):
                 languages.add(language)
 
     metadata = blocks[0]["metadata"].copy()
+
+    function_names = []
+
+    for block in blocks:
+        for name in block["metadata"].get("function_names", []):
+            if name not in function_names:
+                function_names.append(name)
+
+    metadata["function_names"] = function_names
 
     metadata["content_types"] = list(content_types)
     metadata["has_code"] = has_code
