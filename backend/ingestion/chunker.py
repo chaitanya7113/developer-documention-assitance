@@ -1,5 +1,3 @@
-from importlib.metadata import metadata
-
 
 def create_chunks(blocks, max_characters=2000):
     chunks = []
@@ -7,35 +5,57 @@ def create_chunks(blocks, max_characters=2000):
     current_blocks = []
     current_length = 0
     current_section = None
+    current_language = None
 
     for block in blocks:
         content = block["content"]
-        section = block["metadata"].get("section")
+        metadata = block["metadata"]
 
-        # Section change hone par current chunk complete karo
+        section = metadata.get("section")
+        block_type = metadata.get("type")
+        block_language = metadata.get("language")
+
+        # Section change
         if current_blocks and section != current_section:
             chunks.append(build_chunk(current_blocks))
-
             current_blocks = []
             current_length = 0
+            current_language = None
 
         current_section = section
 
-        # Size limit cross hone par current chunk complete karo
-        if current_blocks and current_length + len(content) > max_characters:
+        # Split when code language changes
+        if (
+            current_blocks
+            and block_type == "code"
+            and block_language
+            and current_language
+            and block_language != current_language
+        ):
             chunks.append(build_chunk(current_blocks))
-
             current_blocks = []
             current_length = 0
+            current_language = None
+
+        # Split when size limit is crossed
+        if current_blocks and current_length + len(content) > max_characters:
+            chunks.append(build_chunk(current_blocks))
+            current_blocks = []
+            current_length = 0
+            current_language = None
+
+        # Set language after all split checks
+        if block_type == "code" and block_language:
+            current_language = block_language
 
         current_blocks.append(block)
         current_length += len(content)
 
-    # Last chunk
     if current_blocks:
         chunks.append(build_chunk(current_blocks))
 
     return chunks
+
 
 
 def build_chunk(blocks):

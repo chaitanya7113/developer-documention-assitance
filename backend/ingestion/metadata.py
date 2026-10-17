@@ -1,5 +1,5 @@
 from pathlib import Path
-from ingestion.function_detector import detect_function_names
+from ingestion.function_detector import detect_function_names, detect_function_calls
 
 def add_metadata(blocks, file_path,source):
     # File path ko Path object me convert karte hain, taaki .name se
@@ -44,20 +44,27 @@ def add_metadata(blocks, file_path,source):
             current_level = max(sections)
             metadata["section"] = sections[current_level]
 
+        
         if block["type"] == "code":
-            # Code block ke saath uski programming language bhi save karo.
+            # Code block ki programming language save karo.
             metadata["language"] = block["language"]
-            language=block["language"]
 
+            language = block["language"].lower()
 
             supported_languages = {
-                    "js", "jsx", "javascript",
-                    "ts", "tsx", "typescript"
-                }
-            if language.lower() in supported_languages:
-                metadata["function_names"] = detect_function_names(block["content"])
+                "js", "jsx", "javascript",
+                "ts", "tsx", "typescript",
+            }
+
+            if language in supported_languages:
+                code = block["content"]
+
+                metadata["function_names"] = detect_function_names(code)
+                metadata["function_calls"] = detect_function_calls(code)
             else:
                 metadata["function_names"] = []
+                metadata["function_calls"] = []
+
 
         # Content aur metadata ko ek result item ke roop me add karo.
         result.append({

@@ -5,8 +5,6 @@ from ingestion.cleaner import clean_text
 from ingestion.metadata import add_metadata
 from ingestion.chunker import create_chunks
 from ingestion.chunk_id import generate_chunk_ids
-from services.embedding_service import EmbeddingService
-import time
 
 def process_documentation(source_dir):
     # 1. load Markdown files 
@@ -15,6 +13,8 @@ def process_documentation(source_dir):
 
     all_chunks = []
 
+    total_blocks = 0
+
     for document in documents:
         file_path = document["source"]
         content = document["content"]
@@ -22,7 +22,9 @@ def process_documentation(source_dir):
         
 
         # 2. extract Markdown content to blocks (headings, paragraphs, code blocks)
-        blocks = extract_markdown(content)
+        blocks  = extract_markdown(content)
+
+        
 
         
 
@@ -46,22 +48,78 @@ def process_documentation(source_dir):
         all_chunks.extend(chunks)
 
     # 6. add unique IDs to each chunk based on source and file name
-    all_chunks = generate_chunk_ids(all_chunks)
+    all_chunks = generate_chunk_ids(all_chunks) 
     
 
-   
 
-    return all_chunks
+
+    return all_chunks 
+
+
+def validate_code_block_integrity(source_dir="../docs"):
+    documents = load_markdown_files(source_dir)
+
+    original_code_blocks = []
+
+    for document in documents:
+        blocks = extract_markdown(document["content"])
+
+        for block in blocks:
+            if (
+                block.get("type") == "code"
+                and block.get("content", "").strip()
+            ):
+                original_code_blocks.append(block["content"])
+
+    chunks = process_documentation(source_dir)
+    chunk_contents = [
+        chunk.get("content", "")
+        for chunk in chunks
+    ]
+
+    missing_blocks = [
+        code
+        for code in original_code_blocks
+        if not any(code in content for content in chunk_contents)
+    ]
+
+    print("\n--- Code Block Integrity ---")
+    print("Original non-empty code blocks:", len(original_code_blocks))
+    print("Total chunks:", len(chunks))
+    print("Code blocks not found intact:", len(missing_blocks))
+
+    if missing_blocks:
+        print("\nFirst missing code block:")
+        print(missing_blocks[0][:500])
+
+
+
+
+    # Keep your existing metadata validation here.
+
+
 
 if __name__ == "__main__":
     chunks = process_documentation("../docs")
-
+    
+    
     print(f"Total chunks: {len(chunks)}")
-
+    
     if chunks:
-        for chunk in chunks[:30]:
-            if chunk['metadata']['type']=='code':
-                # print(f"Chunk ID: {chunk['id']}")
-                print(f"Metadata: {chunk['metadata']['function_names']}")
-                # print(f"Content: {chunk['content']}")
-                print("-" * 100)
+            for chunk in chunks:
+                if chunk['metadata']['type']=='code' and chunk['metadata']['language'].lower() in ["js", "jsx", "javascript", "ts", "tsx", "typescript"]:
+                    print("Function name:", chunk['metadata'].get('function_names', 'N/A'))
+                    print("Function calls:", chunk['metadata'].get('function_calls', 'N/A'))
+                    print("Language:", chunk['metadata'].get('language', 'N/A'))
+                    print("-" * 100)
+    
+    
+
+  
+
+
+
+
+
+
+ 

@@ -39,6 +39,10 @@ def extract_markdown(content):
         # Code block
         # its job to get the language of the code block, if any. If no language is specified, it defaults to "text".
         if token.type == "fence":
+            if not token.content.strip():                 
+                i += 1
+                continue
+
             info = token.info.strip() #its job to get the language of the code block, if any. If no language is specified, it defaults to "text".
 
             language = info.split()[0] if info else "text" # its job to get the language of the code block, if any. If no language is specified, it defaults to "text".
@@ -48,11 +52,10 @@ def extract_markdown(content):
                 "language": language,
                 "content": token.content.rstrip("\n")
             })
-
         i += 1
             
 
-    return blocks
+    return blocks 
 
 
 
