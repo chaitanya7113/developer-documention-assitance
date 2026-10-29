@@ -112,14 +112,3 @@ if __name__ == "__main__":
                     print("Function calls:", chunk['metadata'].get('function_calls', 'N/A'))
                     print("Language:", chunk['metadata'].get('language', 'N/A'))
                     print("-" * 100)
-    
-    
-
-  
-
-
-
-
-
-
- 

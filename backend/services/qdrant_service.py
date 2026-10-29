@@ -45,7 +45,7 @@ def search_similar_chunks(query_vector):
     results = client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
-        limit=10,
+        limit=20,
     )
 
     return results.points
@@ -138,3 +138,34 @@ def search_chunks_by_files(query_vector, file_names, limit=15):
     )
 
     return results.points
+
+
+
+
+from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+
+
+
+def search_chunks_by_function(query_vector, function_name, limit=10):
+    results = client.query_points(
+        collection_name=COLLECTION_NAME,
+        query=query_vector,
+        query_filter=Filter(
+            should=[
+                FieldCondition(
+                    key="function_names",
+                    match=MatchValue(value=function_name)
+                ),
+                FieldCondition(
+                    key="function_calls",
+                    match=MatchValue(value=function_name)
+                ),
+            ]
+        ),
+        limit=limit,
+    )
+
+    return results.points
+
+

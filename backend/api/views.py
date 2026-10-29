@@ -1,106 +1,150 @@
-from django.shortcuts import render
 
-
-# Create your views here.
-
+import re
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
-import time
 
 from rag.embeddings import create_query_embedding
-from services.qdrant_service import search_similar_chunks, search_chunks_by_files
+from services.qdrant_service import (
+    search_similar_chunks,
+    search_chunks_by_function,
+)
 from rag.reranker import rerank_results
 from rag.context_builder import build_context
 from rag.generator import generate_answer
 
 
+RERANKER_THRESHOLD = 1.0
+
+
+def extract_function_candidates(question):
+    """Extract code-style identifiers such as createRoot or hydrateRoot."""
+    pattern = r"\b[A-Za-z_$][A-Za-z0-9_$]*[A-Z][A-Za-z0-9_$]*\b"
+    return list(dict.fromkeys(re.findall(pattern, question)))
+
+
+def merge_results(*result_groups):
+    """Merge Qdrant points and remove duplicate chunks."""
+    merged = []
+    seen = set()
+
+    for group in result_groups:
+        for point in group:
+            payload = point.payload
+            key = payload.get("chunk_id")
+
+            if not key:
+                key = (
+                    payload.get("file", ""),
+                    payload.get("content", ""),
+                )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            merged.append(point)
+
+    return merged
+
+
 @api_view(["POST"])
 def chat(request):
-
     question = request.data.get("question")
 
-    if not question:
+    if not isinstance(question, str) or not question.strip():
         return Response(
             {"error": "Question is required."},
-            status=400
+            status=400,
         )
 
-    # 1. Embedding
-    start = time.time()
+    question = question.strip()
 
+    # 1. Create query embedding
     query_vector = create_query_embedding(question)
 
-    print("Embedding time:", time.time() - start)
+    # 2. Semantic retrieval
+    semantic_results = search_similar_chunks(query_vector)
 
-    # 2. Qdrant retrieval
-    start = time.time()
+    # 3. Function-based retrieval for code-style identifiers
+    function_results = []
 
-    results = search_similar_chunks(query_vector)
+    for function_name in extract_function_candidates(question):
+        function_results.extend(
+            search_chunks_by_function(
+                query_vector,
+                function_name,
+                limit=10,
+            )
+        )
 
-    print("Qdrant time:", time.time() - start)
-
-    # 3. First reranking
-    start = time.time()
-
-    first_reranked = rerank_results(
-        question,
-        results,
-        top_k=3
+    # 4. Merge results and remove duplicates
+    candidate_results = merge_results(
+        semantic_results,
+        function_results,
     )
 
-    print("First reranking time:", time.time() - start)
-
-    # 4. Unique files
-    files = set()
-
-    for result in first_reranked:
-        files.add(result["payload"]["file"])
-
-    # 5. Retrieve file chunks
-    start = time.time()
-
-    candidate_chunks = search_chunks_by_files(
-    query_vector,
-    files,
-    limit=15
-    )
-
-    print("File retrieval time:", time.time() - start)
-
-    # 6. Second reranking
-    start = time.time()
-
+    # 5. Rerank combined results
     final_results = rerank_results(
         question,
-        candidate_chunks,
-        top_k=5
+        candidate_results,
+        top_k=5,
     )
 
-    print("Second reranking time:", time.time() - start)
+    print("Question:", question)
+    print("Candidates before threshold:")
 
-    # 7. Context building
-    start = time.time()
+    for result in final_results:
+        print(
+            "Score:", result["score"],
+            "File:", result["payload"].get("file"),
+            "Function calls:", result["payload"].get("function_calls"),
+            "Content:", result["payload"].get("content", "")[:200],
+        )
 
+    # 6. Filter low-scoring results
+    final_results = [
+        result
+        for result in final_results
+        if result["score"] >= RERANKER_THRESHOLD
+    ]
+
+    print("-"*100)
+    print("Final results after threshold:")
+    print("THRESHOLD:", RERANKER_THRESHOLD)
+    print("-"*100)
+    for result in final_results:
+        print(
+            "Score:", result["score"],
+            "File:", result["payload"].get("file"),
+            "Function calls:", result["payload"].get("function_calls"),
+            "Content:", result["payload"].get("content", "")[:200],
+        )
+
+    # 7. If no results meet the threshold, return a default response
+    if not final_results:
+        return Response({
+            "question": question,
+            "answer": (
+                "I couldn't find the answer in the provided documentation."
+            ),
+        })
+
+    # 7. Build context
     context = build_context(final_results)
 
-    print("Context building time:", time.time() - start)
+    print("CONTEXT LENGTH:", len(context))
+    print("CONTEXT PREVIEW:", context[:1500])
 
-    # 8. LLM
-    start = time.time()
+    # 8. Generate answer
+    answer = generate_answer(question, context)
 
-    answer = generate_answer(
-        question,
-        context
-    )
+   
 
-    print("LLM time:", time.time() - start)
 
-    print(f"Question: {question}")
-    print(f"Answer: {answer}")
+    print("GENERATED ANSWER:", repr(answer))
 
     return Response({
         "question": question,
-        "answer": answer
+        "answer": answer,
     })

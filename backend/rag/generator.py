@@ -16,17 +16,27 @@ llm = ChatOpenAI(
 )
 
 
+
 def generate_answer(question, context):
     prompt = f"""
 You are a developer documentation assistant.
 
-Answer the user's question using only the provided documentation context.
+Answer the user's question using the documentation context below.
 
-If the answer is not present in the context, say:
-"I couldn't find the answer in the provided documentation."
+Rules:
+1. Read all the provided context before answering.
+2. If the context contains relevant information, answer using that information.
+3. If the user asks where a function is documented, use the file and section
+   information provided in the context.
+4. Do not require the context to contain the exact wording of the question.
+5. If the context genuinely does not contain enough information, say:
+   "I couldn't find the answer in the provided documentation."
+6. Do not invent documentation locations, file paths, or section names.
 
 Documentation Context:
+<context>
 {context}
+</context>
 
 User Question:
 {question}
@@ -35,5 +45,8 @@ Answer:
 """
 
     response = llm.invoke(prompt)
+    answer = response.content
 
-    return response.content
+    print("LLM raw answer:", repr(answer))
+
+    return answer

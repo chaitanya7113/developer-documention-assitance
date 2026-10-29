@@ -64,6 +64,8 @@ def build_chunk(blocks):
     content_types = set()
     languages = set()
     has_code = False
+    function_names = []
+    function_calls=[]
 
     for block in blocks:
         contents.append(block["content"])
@@ -81,14 +83,22 @@ def build_chunk(blocks):
 
     metadata = blocks[0]["metadata"].copy()
 
-    function_names = []
+    
 
     for block in blocks:
         for name in block["metadata"].get("function_names", []):
             if name not in function_names:
                 function_names.append(name)
 
+        for call in block["metadata"].get("function_calls", []):
+            if call not in function_calls:
+                function_calls.append(call)
+
+        
+
+    
     metadata["function_names"] = function_names
+    metadata["function_calls"]=function_calls
 
     metadata["content_types"] = list(content_types)
     metadata["has_code"] = has_code
