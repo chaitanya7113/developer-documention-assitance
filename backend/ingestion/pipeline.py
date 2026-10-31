@@ -6,6 +6,16 @@ from ingestion.metadata import add_metadata
 from ingestion.chunker import create_chunks
 from ingestion.chunk_id import generate_chunk_ids
 
+
+
+DOCUMENTATION_SOURCE = "react.dev"
+
+SOURCE_COMMIT = "8efce7853d0fc59e615ed1c253799cf1798b8428"
+
+SNAPSHOT_DATE = "2026-09-10"
+
+DOCUMENTATION_VERSION = None
+
 def process_documentation(source_dir):
     # 1. load Markdown files 
     documents = load_markdown_files(source_dir)
@@ -39,8 +49,12 @@ def process_documentation(source_dir):
         blocks = add_metadata(
             blocks,
             file_path=file_path,
-            source=file_path
-        ) 
+            source=file_path,
+            documentation_source=DOCUMENTATION_SOURCE,
+            source_commit=SOURCE_COMMIT,
+            snapshot_date=SNAPSHOT_DATE,
+            version=DOCUMENTATION_VERSION,
+        )
 
         # 5. convert blocks to chunks (grouping blocks into chunks based on section and size)
         chunks = create_chunks(blocks)
@@ -106,9 +120,5 @@ if __name__ == "__main__":
     print(f"Total chunks: {len(chunks)}")
     
     if chunks:
-            for chunk in chunks:
-                if chunk['metadata']['type']=='code' and chunk['metadata']['language'].lower() in ["js", "jsx", "javascript", "ts", "tsx", "typescript"]:
-                    print("Function name:", chunk['metadata'].get('function_names', 'N/A'))
-                    print("Function calls:", chunk['metadata'].get('function_calls', 'N/A'))
-                    print("Language:", chunk['metadata'].get('language', 'N/A'))
-                    print("-" * 100)
+            for chunk in chunks[:5]:  # Print metadata for the first 5 chunks
+                print(f"Chunk metadata: {chunk['metadata']}")

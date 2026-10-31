@@ -1,7 +1,15 @@
 from pathlib import Path
 from ingestion.function_detector import detect_function_names, detect_function_calls
 
-def add_metadata(blocks, file_path,source):
+def add_metadata(
+    blocks,
+    file_path,
+    source,
+    documentation_source="react.dev",
+    source_commit=None,
+    snapshot_date=None,
+    version=None,
+):
     # File path ko Path object me convert karte hain, taaki .name se
     # sirf file ka naam aasani se mil sake.
     file_path = Path(file_path)
@@ -36,8 +44,12 @@ def add_metadata(blocks, file_path,source):
             "source": source,
             "file": file_path.name,
             "type": block["type"],
+            "framework": "react",
+            "documentation_source": documentation_source,
+            "source_commit": source_commit,
+            "snapshot_date": snapshot_date,
+            "version": version,
         }
-
         if sections:
             # max(sections) sabse bada heading level deta hai, jo current
             # deepest section hota hai.
