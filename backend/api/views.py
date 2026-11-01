@@ -5,10 +5,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from rag.embeddings import create_query_embedding
+
 from services.qdrant_service import (
     search_similar_chunks,
     search_chunks_by_function,
 )
+
 from rag.reranker import rerank_results
 from rag.context_builder import build_context
 from rag.generator import generate_answer
@@ -60,12 +62,51 @@ def chat(request):
 
     question = question.strip()
 
+    
+    allowed_filters = {
+        "framework",
+        "version",
+        "documentation_source",
+        "source_commit",
+        "snapshot_date",
+    }
+
+    requested_filters = request.data.get("filters") or {}
+
+    if not isinstance(requested_filters, dict):
+        return Response(
+            {"error": "Filters must be a JSON object."},
+            status=400,
+        )
+
+    invalid_filters = set(requested_filters) - allowed_filters
+
+    if invalid_filters:
+        return Response(
+            {
+                "error": "Unsupported metadata filters.",
+                "invalid_filters": sorted(invalid_filters),
+            },
+            status=400,
+        )
+
+    metadata_filters = {
+        key: value
+        for key, value in requested_filters.items()
+        if value is not None and value != ""
+    }
+
+
     # 1. Create query embedding
     query_vector = create_query_embedding(question)
 
     # 2. Semantic retrieval
-    semantic_results = search_similar_chunks(query_vector)
+    semantic_results = search_similar_chunks(
+    query_vector,
+    metadata_filters=metadata_filters,
+)
 
+   
     # 3. Function-based retrieval for code-style identifiers
     function_results = []
 
@@ -75,8 +116,10 @@ def chat(request):
                 query_vector,
                 function_name,
                 limit=10,
+                metadata_filters=metadata_filters,
             )
         )
+
 
     # 4. Merge results and remove duplicates
     candidate_results = merge_results(
