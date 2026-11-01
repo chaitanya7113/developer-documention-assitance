@@ -70,17 +70,6 @@ def search_similar_chunks(query_vector, metadata_filters=None):
         query_filter=query_filter,
         limit=20,
     )
-
-
-    for point in results.points:
-        print({
-            "file": point.payload.get("file"),
-            "framework": point.payload.get("framework"),
-            "documentation_source": point.payload.get("documentation_source"),
-            "source_commit": point.payload.get("source_commit"),
-            "version": point.payload.get("version"),
-        })
-
     return results.points
 
 
