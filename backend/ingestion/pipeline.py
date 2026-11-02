@@ -14,7 +14,7 @@ SOURCE_COMMIT = "8efce7853d0fc59e615ed1c253799cf1798b8428"
 
 SNAPSHOT_DATE = "2026-09-10"
 
-DOCUMENTATION_VERSION = None
+DOCUMENTATION_VERSION = "19.0.0"
 
 def process_documentation(source_dir):
     # 1. load Markdown files 
