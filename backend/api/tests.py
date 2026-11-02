@@ -1,11 +1,10 @@
-from django.test import TestCase
-
-# Create your tests here.
-
-
-from rest_framework.test import APITestCase
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.test import TestCase
+from rest_framework.test import APITestCase
+
+from api.views import merge_results
 
    
 
@@ -94,3 +93,146 @@ class ChatAPITests(APITestCase):
                 filters,
             )
 
+
+    
+    @patch("api.views.generate_answer")
+    @patch("api.views.rerank_results")
+    @patch("api.views.search_chunks_by_function", return_value=[])
+    @patch("api.views.search_similar_chunks")
+    @patch("api.views.create_query_embedding", return_value=[0.1] * 384)
+    def test_results_below_threshold_are_rejected(
+        self,
+        mock_embedding,
+        mock_search,
+        mock_function_search,
+        mock_rerank,
+        mock_generate,
+    ):
+        point = SimpleNamespace(
+            payload={
+                "chunk_id": "react-001",
+                "file": "react.md",
+                "content": "Documentation content",
+            }
+        )
+
+        mock_search.return_value = [point]
+        mock_rerank.return_value = [
+            {
+                "score": 0.99,
+                "payload": point.payload,
+            }
+        ]
+
+        response = self.client.post(
+            self.url,
+            {"question": "What does createRoot do?"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["answer"],
+            "I couldn't find the answer in the provided documentation.",
+        )
+        mock_generate.assert_not_called()
+
+    @patch("api.views.generate_answer", return_value="React creates a root.")
+    @patch("api.views.build_context", return_value="Relevant documentation")
+    @patch("api.views.rerank_results")
+    @patch("api.views.search_chunks_by_function", return_value=[])
+    @patch("api.views.search_similar_chunks")
+    @patch("api.views.create_query_embedding", return_value=[0.1] * 384)
+    def test_results_at_threshold_are_accepted(
+        self,
+        mock_embedding,
+        mock_search,
+        mock_function_search,
+        mock_rerank,
+        mock_build_context,
+        mock_generate,
+    ):
+        point = SimpleNamespace(
+            payload={
+                "chunk_id": "react-001",
+                "file": "react.md",
+                "content": "Documentation content",
+            }
+        )
+
+        mock_search.return_value = [point]
+        mock_rerank.return_value = [
+            {
+                "score": 1.0,
+                "payload": point.payload,
+            }
+        ]
+
+        response = self.client.post(
+            self.url,
+            {"question": "What does createRoot do?"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["answer"],
+            "React creates a root.",
+        )
+        mock_generate.assert_called_once()
+
+
+
+class MergeResultsTests(TestCase):
+
+    def test_duplicate_chunks_are_removed(self):
+        chunk_1 = SimpleNamespace(
+            payload={
+                "chunk_id": "react-001",
+                "content": "React documentation",
+            }
+        )
+
+        chunk_2 = SimpleNamespace(
+            payload={
+                "chunk_id": "react-001",
+                "content": "Duplicate chunk",
+            }
+        )
+
+        chunk_3 = SimpleNamespace(
+            payload={
+                "chunk_id": "react-002",
+                "content": "Another chunk",
+            }
+        )
+
+        results = merge_results(
+            [chunk_1, chunk_2],
+            [chunk_3],
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(
+            [item.payload["chunk_id"] for item in results],
+            ["react-001", "react-002"],
+        )
+
+    def test_chunks_without_ids_use_file_and_content(self):
+        chunk_1 = SimpleNamespace(
+            payload={
+                "file": "react.md",
+                "content": "How to create a root",
+            }
+        )
+
+        duplicate = SimpleNamespace(
+            payload={
+                "file": "react.md",
+                "content": "How to create a root",
+            }
+        )
+
+        results = merge_results([chunk_1, duplicate])
+
+        self.assertEqual(len(results), 1)
