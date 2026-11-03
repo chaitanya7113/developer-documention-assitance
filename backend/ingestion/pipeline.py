@@ -122,3 +122,12 @@ if __name__ == "__main__":
     if chunks:
             for chunk in chunks[:5]:  # Print metadata for the first 5 chunks
                 print(f"Chunk metadata: {chunk['metadata']}")
+                print("=="*100)
+
+            for chunk in chunks:
+
+                if chunk["metadata"]["type"] == "code":
+                    print(f"Code chunk content: {chunk['content'][:500]}")  # Print first 500 characters of code chunk
+                    print(f"Code chunk metadata: {chunk['metadata']}")
+                    print("=="*100)
+                    break
