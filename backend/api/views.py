@@ -14,7 +14,7 @@ from services.qdrant_service import (
 from rag.reranker import rerank_results
 from rag.context_builder import build_context
 from rag.generator import generate_answer
-
+from rag.citation_builder import build_citations
 
 RERANKER_THRESHOLD = 1.0
 
@@ -152,6 +152,8 @@ def chat(request):
         if result["score"] >= RERANKER_THRESHOLD
     ]
 
+    citations = build_citations(final_results)
+
     print("-"*100)
     print("Final results after threshold:")
     print("THRESHOLD:", RERANKER_THRESHOLD)
@@ -171,6 +173,7 @@ def chat(request):
             "answer": (
                 "I couldn't find the answer in the provided documentation."
             ),
+            "citations": [],
         })
 
     # 7. Build context
@@ -190,4 +193,5 @@ def chat(request):
     return Response({
         "question": question,
         "answer": answer,
+        "citations": citations,
     })
