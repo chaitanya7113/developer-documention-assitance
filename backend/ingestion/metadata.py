@@ -9,6 +9,7 @@ def add_metadata(
     source_commit=None,
     snapshot_date=None,
     version=None,
+    documentation_url=None
 ):
     # File path ko Path object me convert karte hain, taaki .name se
     # sirf file ka naam aasani se mil sake.
@@ -49,6 +50,7 @@ def add_metadata(
             "source_commit": source_commit,
             "snapshot_date": snapshot_date,
             "version": version,
+            "documentation_url": documentation_url,
         }
         if sections:
             # max(sections) sabse bada heading level deta hai, jo current

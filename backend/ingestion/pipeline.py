@@ -5,6 +5,7 @@ from ingestion.cleaner import clean_text
 from ingestion.metadata import add_metadata
 from ingestion.chunker import create_chunks
 from ingestion.chunk_id import generate_chunk_ids
+from ingestion.url_mapper import get_documentation_url
 
 
 
@@ -21,6 +22,7 @@ def process_documentation(source_dir):
     documents = load_markdown_files(source_dir)
 
 
+
     all_chunks = []
 
     total_blocks = 0
@@ -30,6 +32,10 @@ def process_documentation(source_dir):
         content = document["content"]
 
         
+        documentation_url = get_documentation_url(
+        file_path=file_path,
+        docs_root=Path("../docs/react"),
+        )
 
         # 2. extract Markdown content to blocks (headings, paragraphs, code blocks)
         blocks  = extract_markdown(content)
@@ -54,6 +60,7 @@ def process_documentation(source_dir):
             source_commit=SOURCE_COMMIT,
             snapshot_date=SNAPSHOT_DATE,
             version=DOCUMENTATION_VERSION,
+            documentation_url=documentation_url,
         )
 
         # 5. convert blocks to chunks (grouping blocks into chunks based on section and size)
@@ -120,14 +127,10 @@ if __name__ == "__main__":
     print(f"Total chunks: {len(chunks)}")
     
     if chunks:
-            for chunk in chunks[:5]:  # Print metadata for the first 5 chunks
-                print(f"Chunk metadata: {chunk['metadata']}")
-                print("=="*100)
-
-            for chunk in chunks:
-
-                if chunk["metadata"]["type"] == "code":
-                    print(f"Code chunk content: {chunk['content'][:500]}")  # Print first 500 characters of code chunk
-                    print(f"Code chunk metadata: {chunk['metadata']}")
-                    print("=="*100)
-                    break
+            for chunk in chunks[:5]:
+                print({
+                    "chunk_id": chunk["id"],
+                    "file": chunk["metadata"].get("file"),
+                    "documentation_url": chunk["metadata"].get("documentation_url"),
+                    "section": chunk["metadata"].get("section"),
+                })
