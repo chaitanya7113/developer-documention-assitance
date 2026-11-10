@@ -1,65 +1,25 @@
 
-from rag.citation_builder import build_citations
+from rag.embeddings import create_query_embedding
+from services.qdrant_service import search_combined_chunks
 
+question = "Show me a useState code example in React"
 
-def test_build_citations():
+query_vector = create_query_embedding(question)
 
-    results = [
-        {
-            "score": 8.5,
-            "payload": {
-                "file": "useCallback.md",
-                "section": "Optimizing a custom Hook",
-                "documentation_url": (
-                    "https://react.dev/reference/react/useCallback"
-                ),
-            },
-        },
-        {
-            "score": 7.9,
-            "payload": {
-                "file": "useCallback.md",
-                "section": "Preventing an Effect from firing too often",
-                "documentation_url": (
-                    "https://react.dev/reference/react/useCallback"
-                ),
-            },
-        },
-        {
-            "score": 7.5,
-            "payload": {
-                "file": "useState.md",
-                "section": "Resetting state with a key",
-                "documentation_url": (
-                    "https://react.dev/reference/react/useState"
-                ),
-            },
-        },
-        {
-            "score": 6.5,
-            "payload": {
-                "file": "unknown.md",
-                "section": "Unknown section",
-            },
-        },
-    ]
+results = search_combined_chunks(
+    query_vector=query_vector,
+    function_name="useState",
+    limit=20,
+)
 
-    citations = build_citations(results)
+print("Total unique results:", len(results))
 
-    assert len(citations) == 2
+for result in results:
+    payload = result.payload
 
-    assert citations[0]["title"] == "useCallback"
-    assert citations[0]["file"] == "useCallback.md"
-    assert citations[0]["section"] == "Optimizing a custom Hook"
-    assert citations[0]["url"] == (
-        "https://react.dev/reference/react/useCallback"
-    )
-
-    assert citations[1]["title"] == "useState"
-
-    print("Citations:", citations)
-    print("All citation tests passed!")
-
-
-if __name__ == "__main__":
-    test_build_citations()
+    print("-" * 80)
+    print("Chunk ID:", payload.get("chunk_id"))
+    print("File:", payload.get("file"))
+    print("Section:", payload.get("section"))
+    print("Has Code:", payload.get("has_code"))
+    print("Content:", payload.get("content"))

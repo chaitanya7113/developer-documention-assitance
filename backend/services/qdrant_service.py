@@ -205,3 +205,107 @@ def search_chunks_by_function(
     )
 
     return results.points
+
+
+
+
+
+def search_code_chunks(
+    query_vector,
+    limit=10,
+    metadata_filters=None,
+):
+    metadata_filter = build_metadata_filter(metadata_filters)
+
+    metadata_conditions = (
+        metadata_filter.must
+        if metadata_filter is not None
+        else []
+    )
+
+    metadata_conditions.append(
+        FieldCondition(
+            key="has_code",
+            match=MatchValue(value=True),
+        )
+    )
+
+    results = client.query_points(
+        collection_name=COLLECTION_NAME,
+        query=query_vector,
+        query_filter=Filter(
+            must=metadata_conditions,
+        ),
+        limit=limit,
+    )
+
+    return results.points
+
+
+
+
+def search_combined_chunks(
+    query_vector,
+    function_name=None,
+    limit=20,
+    metadata_filters=None,
+):
+    """
+    Combine semantic, function-based, and code-based retrieval.
+    Remove duplicate chunks before returning results.
+    """
+
+    # 1. Semantic retrieval
+    semantic_results = search_similar_chunks(
+        query_vector,
+        metadata_filters=metadata_filters,
+    )
+
+    # 2. Code retrieval
+    code_results = search_code_chunks(
+        query_vector,
+        limit=limit,
+        metadata_filters=metadata_filters,
+    )
+
+    # 3. Function-based retrieval
+    function_results = []
+
+    if function_name:
+        function_results = search_chunks_by_function(
+            query_vector=query_vector,
+            function_name=function_name,
+            limit=limit,
+            metadata_filters=metadata_filters,
+        )
+
+    # 4. Merge all results
+    all_results = (
+        semantic_results
+        + code_results
+        + function_results
+    )
+
+    # 5. Remove duplicate chunks
+    unique_results = []
+    seen_chunks = set()
+
+    for result in all_results:
+        payload = result.payload
+
+        chunk_id = payload.get("chunk_id")
+
+        if not chunk_id:
+            chunk_id = (
+                payload.get("file", ""),
+                payload.get("section", ""),
+                payload.get("content", ""),
+            )
+
+        if chunk_id in seen_chunks:
+            continue
+
+        seen_chunks.add(chunk_id)
+        unique_results.append(result)
+
+    return unique_results
