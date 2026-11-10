@@ -21,6 +21,9 @@ def detect_query_intent(question):
         r"\bshow me how\b",
         r"\bhow to implement\b",
         r"\bwrite\b",
+        r"\bhow can i use\b",
+        r"\bhow do i use\b",
+        r"\bhow to use\b",
     ]
 
     explanation_patterns = [

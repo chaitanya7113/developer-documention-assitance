@@ -6,15 +6,13 @@ from rest_framework.response import Response
 
 from rag.embeddings import create_query_embedding
 
-from services.qdrant_service import (
-    search_similar_chunks,
-    search_chunks_by_function,
-)
+from services.qdrant_service import search_combined_chunks
 
 from rag.reranker import rerank_results
 from rag.context_builder import build_context
 from rag.generator import generate_answer
 from rag.citation_builder import build_citations
+from rag.query_intent import detect_query_intent
 
 RERANKER_THRESHOLD = 1.0
 
@@ -53,6 +51,7 @@ def merge_results(*result_groups):
 @api_view(["POST"])
 def chat(request):
     question = request.data.get("question")
+    
 
     if not isinstance(question, str) or not question.strip():
         return Response(
@@ -61,6 +60,11 @@ def chat(request):
         )
 
     question = question.strip()
+    # 1. Detect query intent
+    query_intent = detect_query_intent(question)
+
+    print("Question:", question)
+    print("Detected Intent:", query_intent)
 
     
     allowed_filters = {
@@ -100,50 +104,36 @@ def chat(request):
     # 1. Create query embedding
     query_vector = create_query_embedding(question)
 
-    # 2. Semantic retrieval
-    semantic_results = search_similar_chunks(
-    query_vector,
-    metadata_filters=metadata_filters,
-)
+        # 2. Extract function candidates
+    function_names = extract_function_candidates(question)
 
-   
-    # 3. Function-based retrieval for code-style identifiers
-    function_results = []
+    # 3. Decide whether code retrieval is required
+    include_code = query_intent in [
+        "code_example",
+        "both",
+    ]
 
-    for function_name in extract_function_candidates(question):
-        function_results.extend(
-            search_chunks_by_function(
-                query_vector,
-                function_name,
-                limit=10,
-                metadata_filters=metadata_filters,
-            )
-        )
-
-
-    # 4. Merge results and remove duplicates
-    candidate_results = merge_results(
-        semantic_results,
-        function_results,
+    # 4. Combined retrieval
+    candidate_results = search_combined_chunks(
+        query_vector=query_vector,
+        function_names=function_names,
+        include_code=include_code,
+        limit=20,
+        metadata_filters=metadata_filters,
     )
 
-    # 5. Rerank combined results
+    print("Detected Intent:", query_intent)
+    print("Function Names:", function_names)
+    print("Include Code:", include_code)
+    print("Total Retrieved Chunks:", len(candidate_results))
+
+    # 5. Reranking
     final_results = rerank_results(
         question,
         candidate_results,
         top_k=5,
     )
 
-    print("Question:", question)
-    print("Candidates before threshold:")
-
-    for result in final_results:
-        print(
-            "Score:", result["score"],
-            "File:", result["payload"].get("file"),
-            "Function calls:", result["payload"].get("function_calls"),
-            "Content:", result["payload"].get("content", "")[:200],
-        )
 
     # 6. Filter low-scoring results
     final_results = [
@@ -154,17 +144,6 @@ def chat(request):
 
     citations = build_citations(final_results)
 
-    print("-"*100)
-    print("Final results after threshold:")
-    print("THRESHOLD:", RERANKER_THRESHOLD)
-    print("-"*100)
-    for result in final_results:
-        print(
-            "Score:", result["score"],
-            "File:", result["payload"].get("file"),
-            "Function calls:", result["payload"].get("function_calls"),
-            "Content:", result["payload"].get("content", "")[:200],
-        )
 
     # 7. If no results meet the threshold, return a default response
     if not final_results:

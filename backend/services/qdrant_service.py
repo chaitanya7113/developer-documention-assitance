@@ -246,13 +246,14 @@ def search_code_chunks(
 
 def search_combined_chunks(
     query_vector,
-    function_name=None,
+    function_names=None,
+    include_code=True,
     limit=20,
     metadata_filters=None,
 ):
     """
-    Combine semantic, function-based, and code-based retrieval.
-    Remove duplicate chunks before returning results.
+    Combine semantic, code and function-based retrieval.
+    Remove duplicate chunks.
     """
 
     # 1. Semantic retrieval
@@ -262,24 +263,29 @@ def search_combined_chunks(
     )
 
     # 2. Code retrieval
-    code_results = search_code_chunks(
-        query_vector,
-        limit=limit,
-        metadata_filters=metadata_filters,
-    )
+    code_results = []
 
-    # 3. Function-based retrieval
-    function_results = []
-
-    if function_name:
-        function_results = search_chunks_by_function(
-            query_vector=query_vector,
-            function_name=function_name,
+    if include_code:
+        code_results = search_code_chunks(
+            query_vector,
             limit=limit,
             metadata_filters=metadata_filters,
         )
 
-    # 4. Merge all results
+    # 3. Function-based retrieval
+    function_results = []
+
+    for function_name in function_names or []:
+        function_results.extend(
+            search_chunks_by_function(
+                query_vector=query_vector,
+                function_name=function_name,
+                limit=limit,
+                metadata_filters=metadata_filters,
+            )
+        )
+
+    # 4. Merge results
     all_results = (
         semantic_results
         + code_results
@@ -298,7 +304,6 @@ def search_combined_chunks(
         if not chunk_id:
             chunk_id = (
                 payload.get("file", ""),
-                payload.get("section", ""),
                 payload.get("content", ""),
             )
 
