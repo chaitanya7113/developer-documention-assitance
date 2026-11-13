@@ -6,8 +6,6 @@ from rest_framework.test import APITestCase
 
 from api.views import merge_results
 
-   
-
 
 class ChatAPITests(APITestCase):
     url = "/api/chat/"
@@ -21,6 +19,16 @@ class ChatAPITests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.data)
+
+    def test_whitespace_question_is_rejected(self):
+        response = self.client.post(
+            self.url,
+            {"question": "   "},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "Question is required.")
 
     def test_filters_must_be_json_object(self):
         response = self.client.post(
@@ -51,20 +59,12 @@ class ChatAPITests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("invalid_filters", response.data)
 
-
-
-    @patch("api.views.search_chunks_by_function", return_value=[])
-    @patch("api.views.search_similar_chunks", return_value=[])
+    @patch("api.views.search_combined_chunks", return_value=[])
     @patch("api.views.create_query_embedding", return_value=[0.1] * 384)
-
-
-    
-
-    def test_valid_metadata_filters_are_passed_to_retrieval(
+    def test_valid_metadata_filters_are_passed_to_combined_retrieval(
         self,
         mock_embedding,
-        mock_semantic_search,
-        mock_function_search,
+        mock_combined_search,
     ):
         filters = {
             "framework": "react",
@@ -81,30 +81,22 @@ class ChatAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-
-        mock_semantic_search.assert_called_once_with(
-            mock_embedding.return_value,
+        mock_combined_search.assert_called_once_with(
+            query_vector=mock_embedding.return_value,
+            function_names=["createRoot"],
+            include_code=False,
+            limit=20,
             metadata_filters=filters,
         )
 
-        for call in mock_function_search.call_args_list:
-            self.assertEqual(
-                call.kwargs["metadata_filters"],
-                filters,
-            )
-
-
-    
     @patch("api.views.generate_answer")
     @patch("api.views.rerank_results")
-    @patch("api.views.search_chunks_by_function", return_value=[])
-    @patch("api.views.search_similar_chunks")
+    @patch("api.views.search_combined_chunks")
     @patch("api.views.create_query_embedding", return_value=[0.1] * 384)
     def test_results_below_threshold_are_rejected(
         self,
         mock_embedding,
-        mock_search,
-        mock_function_search,
+        mock_combined_search,
         mock_rerank,
         mock_generate,
     ):
@@ -115,8 +107,7 @@ class ChatAPITests(APITestCase):
                 "content": "Documentation content",
             }
         )
-
-        mock_search.return_value = [point]
+        mock_combined_search.return_value = [point]
         mock_rerank.return_value = [
             {
                 "score": 0.99,
@@ -135,19 +126,18 @@ class ChatAPITests(APITestCase):
             response.data["answer"],
             "I couldn't find the answer in the provided documentation.",
         )
+        self.assertEqual(response.data["citations"], [])
         mock_generate.assert_not_called()
 
     @patch("api.views.generate_answer", return_value="React creates a root.")
     @patch("api.views.build_context", return_value="Relevant documentation")
     @patch("api.views.rerank_results")
-    @patch("api.views.search_chunks_by_function", return_value=[])
-    @patch("api.views.search_similar_chunks")
+    @patch("api.views.search_combined_chunks")
     @patch("api.views.create_query_embedding", return_value=[0.1] * 384)
     def test_results_at_threshold_are_accepted(
         self,
         mock_embedding,
-        mock_search,
-        mock_function_search,
+        mock_combined_search,
         mock_rerank,
         mock_build_context,
         mock_generate,
@@ -159,8 +149,7 @@ class ChatAPITests(APITestCase):
                 "content": "Documentation content",
             }
         )
-
-        mock_search.return_value = [point]
+        mock_combined_search.return_value = [point]
         mock_rerank.return_value = [
             {
                 "score": 1.0,
@@ -175,16 +164,15 @@ class ChatAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.data["answer"],
-            "React creates a root.",
+        self.assertEqual(response.data["answer"], "React creates a root.")
+        mock_build_context.assert_called_once()
+        mock_generate.assert_called_once_with(
+            "What does createRoot do?",
+            "Relevant documentation",
         )
-        mock_generate.assert_called_once()
-
 
 
 class MergeResultsTests(TestCase):
-
     def test_duplicate_chunks_are_removed(self):
         chunk_1 = SimpleNamespace(
             payload={
@@ -192,14 +180,12 @@ class MergeResultsTests(TestCase):
                 "content": "React documentation",
             }
         )
-
         chunk_2 = SimpleNamespace(
             payload={
                 "chunk_id": "react-001",
                 "content": "Duplicate chunk",
             }
         )
-
         chunk_3 = SimpleNamespace(
             payload={
                 "chunk_id": "react-002",
@@ -225,7 +211,6 @@ class MergeResultsTests(TestCase):
                 "content": "How to create a root",
             }
         )
-
         duplicate = SimpleNamespace(
             payload={
                 "file": "react.md",
