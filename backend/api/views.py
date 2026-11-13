@@ -122,18 +122,30 @@ def chat(request):
         metadata_filters=metadata_filters,
     )
 
-    print("Detected Intent:", query_intent)
     print("Function Names:", function_names)
     print("Include Code:", include_code)
     print("Total Retrieved Chunks:", len(candidate_results))
 
     # 5. Reranking
     final_results = rerank_results(
-        question,
-        candidate_results,
-        top_k=5,
+    question=question,
+    results=candidate_results,
+    top_k=5,
+    prefer_code=include_code,
+    function_names=function_names,
     )
 
+    print("\n--- RERANKED RESULTS ---")
+
+    for index, result in enumerate(final_results, start=1):
+        payload = result["payload"]
+
+        print(f"\nRank: {index}")
+        print(f"File: {payload.get('file')}")
+        print(f"Section: {payload.get('section')}")
+        print(f"Has Code: {payload.get('has_code')}")
+        print(f"Final Score: {result.get('score')}")
+        print(f"Cross Encoder Score: {result.get('cross_encoder_score')}")
 
     # 6. Filter low-scoring results
     final_results = [
@@ -144,6 +156,7 @@ def chat(request):
 
     citations = build_citations(final_results)
 
+   
 
     # 7. If no results meet the threshold, return a default response
     if not final_results:
