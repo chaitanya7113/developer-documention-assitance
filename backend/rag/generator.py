@@ -55,6 +55,8 @@ Rules:
 13. Keep simple answers concise. Avoid unnecessary explanations,
     headings, and formatting.
 
+14. When a code example contains JSX syntax, use the jsx language identifier in the fenced code block.
+
 Documentation Context:
 <context>
 {context}

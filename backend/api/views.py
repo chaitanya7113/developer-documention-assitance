@@ -146,6 +146,7 @@ def chat(request):
         print(f"Has Code: {payload.get('has_code')}")
         print(f"Final Score: {result.get('score')}")
         print(f"Cross Encoder Score: {result.get('cross_encoder_score')}")
+        print(f"Content:\n{payload.get('content')}")
 
     # 6. Filter low-scoring results
     final_results = [
