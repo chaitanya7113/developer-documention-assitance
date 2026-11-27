@@ -1,7 +1,10 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import "./App.css";
+// import "./App.css";
+import ChatHeader from "./components/ChatHeader";
+import WelcomeScreen from "./components/WelcomeScreen";
+import ChatInput from "./components/ChatInput";
 
 function App() {
   const [question, setQuestion] = useState("");
@@ -50,10 +53,11 @@ function App() {
   };
 
   return (
-    <div>
-      <h1>Developer Documentation Assistant</h1>
+    <div className="--bg  min-h-screen p-4">
+      <ChatHeader />
+      {!answer && !loading && !error && <WelcomeScreen />}
 
-      <form onSubmit={handleSubmit}>
+      {/* <form onSubmit={handleSubmit}>
         <textarea
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
@@ -65,7 +69,13 @@ function App() {
         <button type="submit" disabled={loading || !question.trim()}>
           {loading ? "Generating..." : "Ask"}
         </button>
-      </form>
+      </form> */}
+            <ChatInput
+        question={question}
+        setQuestion={setQuestion}
+        handleSubmit={handleSubmit}
+        loading={loading}
+      />
 
       {error && <p role="alert">{error}</p>}
 
